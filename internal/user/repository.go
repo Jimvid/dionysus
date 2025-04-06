@@ -20,7 +20,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 func (u UserRepository) DoesUserExist(username string) (bool, error) {
-	const query = "SELECT 1 FROM users WHERE username = ? LIMIT 1"
+	const query = "SELECT 1 FROM users WHERE username = $1 LIMIT 1"
 
 	var exists int
 	err := u.db.QueryRow(query, username).Scan(&exists)
@@ -37,10 +37,16 @@ func (u UserRepository) DoesUserExist(username string) (bool, error) {
 }
 
 func (u UserRepository) InsertUser(user model.User) error {
-	query := "INSERT INTO users (username, password, email) VALUES (?, ?, ?)"
+	query := "INSERT INTO users (username, password, email) VALUES ($1, $2, $3)"
 
-	_, err := u.db.Exec(query, user.Username, user.PasswordHash)
+	_, err := u.db.Exec(
+		query,
+		user.Username,
+		user.PasswordHash,
+		user.Email,
+	)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 
@@ -50,9 +56,13 @@ func (u UserRepository) InsertUser(user model.User) error {
 func (u UserRepository) GetUser(username string) (model.User, error) {
 	var user model.User
 
-	query := "SELECT username, email FROM users WHERE username = ?"
+	query := "SELECT username, password, email FROM users WHERE username = $1"
 
-	err := u.db.QueryRow(query, username).Scan(&user.Username, &user.Email)
+	err := u.db.QueryRow(query, username).Scan(
+		&user.Username,
+		&user.PasswordHash,
+		&user.Email,
+	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return user, fmt.Errorf("user not found")

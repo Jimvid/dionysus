@@ -30,7 +30,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	userService := user.NewUserService(dbInstance)
 	userHandler := user.NewUserHandler(userService)
 	r.Post("/user/register", userHandler.RegisterUserHandler)
-	r.Get("/user/login", userHandler.LoginUserHandler)
+	r.Post("/user/login", userHandler.LoginUserHandler)
 
 	return r
 }

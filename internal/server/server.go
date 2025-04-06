@@ -31,7 +31,6 @@ func NewServer() *http.Server {
 	if err != nil {
 		log.Fatalf("failed to migrate database: %s", err)
 	}
-	fmt.Println("success?")
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", NewServer.port),

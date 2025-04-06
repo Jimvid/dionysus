@@ -28,10 +28,12 @@ func (s *UserService) NewUserWithHashedPassword(registerUser model.UserRequest) 
 	if err != nil {
 		return model.User{}, err
 	}
+
 	return model.User{
 		Username:     registerUser.Username,
 		Email:        registerUser.Email,
-		PasswordHash: string(hashedPassword)}, nil
+		PasswordHash: string(hashedPassword),
+	}, nil
 }
 
 func (s *UserService) DoesUserExist(username string) (bool, error) {
