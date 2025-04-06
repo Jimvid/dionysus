@@ -2,13 +2,26 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/golang-jwt/jwt/v5"
+	dionysusMiddleware "github.com/jimvid/dionysus/internal/middleware"
 	"github.com/jimvid/dionysus/internal/user"
 )
+
+func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
+	claims, ok := r.Context().Value(dionysusMiddleware.ClaimsContextKey).(jwt.MapClaims)
+	if !ok {
+		http.Error(w, "Unauthorized - no claims", http.StatusUnauthorized)
+		return
+	}
+
+	fmt.Fprintf(w, "claims: %+v", claims)
+}
 
 func (s *Server) RegisterRoutes() http.Handler {
 	dbInstance := s.db.GetDBInstance()
@@ -31,6 +44,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 	userHandler := user.NewUserHandler(userService)
 	r.Post("/user/register", userHandler.RegisterUserHandler)
 	r.Post("/user/login", userHandler.LoginUserHandler)
+
+	// Protected routes
+	r.With(dionysusMiddleware.ValidateJWTMiddleware).Get("/protected", ProtectedHandler)
 
 	return r
 }

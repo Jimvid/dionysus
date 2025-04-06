@@ -1,56 +1,52 @@
 package middleware
 
-// TODO
+import (
+	"context"
+	"net/http"
+	"strings"
+	"time"
 
-// import (
-// 	"fmt"
-// 	"net/http"
-// 	"time"
-//
-// 	"github.com/jimvid/dionysus/internal/jwt"
-// )
+	"github.com/jimvid/dionysus/internal/jwt"
+)
 
-// func ValidateJWTMiddleware(next func(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error)) func(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-// 	return func(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-// 		// extract the headers from our token
-// 		tokenString := extractTokenFromHeaders(request.Headers)
-// 		if tokenString == "" {
-// 			return events.APIGatewayProxyResponse{
-// 				Body:       "Missing Auth token",
-// 				StatusCode: http.StatusUnauthorized,
-// 			}, nil
-// 		}
-//
-// 		claims, err := jwt.VerifyToken(tokenString)
-//
-// 		if err != nil {
-// 			return events.APIGatewayProxyResponse{
-// 				Body:       "Invalid token",
-// 				StatusCode: http.StatusUnauthorized,
-// 			}, nil
-// 		}
-//
-// 		expires := int64(claims["expires"].(float64))
-// 		if time.Now().Unix() > expires {
-// 			return events.APIGatewayProxyResponse{
-// 				Body:       "token expired",
-// 				StatusCode: http.StatusUnauthorized,
-// 			}, nil
-// 		}
-//
-// 		return next(request)
-// 	}
-//
-// }
-//
-// func extractTokenFromHeaders(headers map[string]string) string {
-// 	tokenString, ok := headers["Authorization"]
-//
-// 	if !ok {
-// 		return ""
-// 	}
-//
-// 	tokenString = tokenString[len("Bearer "):]
-// 	fmt.Println(tokenString)
-// 	return tokenString
-// }
+// Key type for storing claims in context
+type contextKey string
+
+const ClaimsContextKey contextKey = "claims"
+
+func ValidateJWTMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenString := extractTokenFromHeader(r)
+		if tokenString == "" {
+			http.Error(w, "Missing or malformed Authorization header", http.StatusUnauthorized)
+			return
+		}
+
+		claims, err := jwt.VerifyToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		// Check expiration
+		expires, ok := claims["expires"].(float64)
+		if !ok || time.Now().Unix() > int64(expires) {
+			http.Error(w, "Token expired", http.StatusUnauthorized)
+			return
+		}
+
+		// Add claims to context
+		ctx := context.WithValue(r.Context(), ClaimsContextKey, claims)
+
+		// next
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func extractTokenFromHeader(r *http.Request) string {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		return ""
+	}
+	return strings.TrimPrefix(authHeader, "Bearer ")
+}
